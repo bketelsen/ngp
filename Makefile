@@ -2,7 +2,7 @@
 # To import subpackages, always prepend the full import path.
 # If you change this, run `make clean`. Read more: https://git.io/vM7zV
 IMPORT_PATH := github.com/bketelsen/ngp
-DOCKER_IMAGE := ngc
+DOCKER_IMAGE := ngp
 build_dir := $(CURDIR)/bin
 dist_dir := $(CURDIR)/dist
 exec := $(DOCKER_IMAGE)
@@ -21,18 +21,22 @@ all: test build
 # safebuild builds inside a docker container with no clingons from your $GOPATH
 safebuild:
 	@echo "Building..."
-	$Q docker build .
+	$Q docker build -t $(DOCKER_IMAGE):$(VERSION) .
 
 .PHONY: build
 build:
 	@echo "Building..."
-	$Q go install $(if $V,-v) $(IMPORT_PATH)
+	$Q rm -f $(GOPATH)/bin/$(DOCKER_IMAGE)
+	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)
 
 .PHONY: tags
 tags:
 	@echo "Listing tags..."
 	$Q @git tag
 
+.PHONY: release
+release: clean-dist build
+	goreleaser
 
 
 ### Code not in the repository root? Another binary? Add to the path like this.
@@ -53,11 +57,21 @@ deps: setup
 
 docker:
 	@echo "Docker Build..."
-	$Q docker build .
+	$Q docker build -t $(DOCKER_IMAGE) .
 
-clean: 
+clean: clean-dist clean-build
 	@echo "Clean..."
 	$Q rm -rf bin
+
+.PHONY: clean-build
+clean-build:
+	@echo "Removing cross-compilation files"
+	rm -rf $(build_dir)
+
+.PHONY: clean-dist
+clean-dist:
+	@echo "Removing distribution files"
+	rm -rf $(dist_dir)
 
 test:
 	@echo "Testing..."
@@ -132,6 +146,7 @@ setup: clean
 
 VERSION          := $(shell git describe --tags --always --dirty="-dev")
 DATE             := $(shell date -u '+%Y-%m-%d-%H:%M UTC')
+VERSION_FLAGS    := -ldflags='-X "main.Version=$(VERSION)" -X "main.BuildTime=$(DATE)"'
 
 # assuming go 1.9 here!!
 _allpackages = $(shell go list ./...) 
