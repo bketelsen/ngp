@@ -1,0 +1,7 @@
+/.GOPATH
+/bin
+.vscode/
+dist/
+build/
+.envrc
+.envrc
